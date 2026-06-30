@@ -450,32 +450,32 @@ http://localhost:8501
 
 # Assignment Requirements Covered
 
-✔ Structured Source
+- Structured Source
 
-✔ Unstructured Source
+- Unstructured Source
 
-✔ Runtime Configuration
+- Runtime Configuration
 
-✔ Canonical Schema
+- Canonical Schema
 
-✔ Normalization
+- Normalization
 
-✔ Candidate Matching
+- Candidate Matching
 
-✔ Merge Strategy
+- Merge Strategy
 
-✔ Provenance
+- Provenance
 
-✔ Confidence Scores
+- Confidence Scores
 
-✔ Validation
+- Validation
 
-✔ Processing Logs
+- Processing Logs
 
-✔ Batch Processing
+- Batch Processing
 
-✔ Download Output
+- Download Output
 
-✔ Streamlit Interface
+- Streamlit Interface
 
 ---
