@@ -757,7 +757,7 @@ if "batch_results" in st.session_state:
     failure_count = st.session_state.batch_failure
     
     st.markdown("---")
-    st.markdown("### Section 6: Processed Candidates Dashboard")
+    st.markdown("### Processed Candidates Dashboard")
     
     col_stat1, col_stat2, col_stat3 = st.columns(3)
     with col_stat1:
@@ -835,7 +835,7 @@ if "batch_results" in st.session_state:
     else:
         st.write("No matching candidates found.")
         
-    st.markdown("### Section 7: View Individual Candidate Output")
+    st.markdown("### View Individual Candidate Output")
     candidate_options = [
         f"#{r['candidate_number']} - {r['name']} ({r['file_name']})"
         for r in filtered_results
