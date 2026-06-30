@@ -243,6 +243,27 @@ class TestCandidateTransformerEdgeCases(unittest.TestCase):
         self.assertIn("linkedin.com/in/samhitha-harini-v", data["links"])
         self.assertIn("github.com/samhithaharini", data["links"])
 
+    def test_multi_candidate_selection(self):
+        # A multi-row CSV file containing Yamini as row 1 and Preethi as row 2
+        csv_content = """name,email,phone,current_company,title,location
+Yamini,yamini@example.com,+91-9876543210,,Title,Bengaluru
+Preethi S,prepreethi2611@gmail.com,8778524631,Company,MLE,Coimbatore"""
+        csv_file = self.write_file("multi.csv", csv_content)
+        
+        # A resume text mimicking Preethi S
+        resume_text = """
+        PREETHI S
+        prepreethi2611 @gmail.com | 8778524631
+        """
+        txt_file = self.write_file("preethi_resume.txt", resume_text)
+        
+        extractor = Extractor(csv_file, txt_file, "csv", "txt")
+        res = extractor.extract()
+        
+        # It should match Preethi (the second row) instead of Yamini (the first row)
+        self.assertEqual(res["structured"]["full_name"], "Preethi S")
+        self.assertEqual(res["structured"]["emails"][0], "prepreethi2611@gmail.com")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -13,7 +13,7 @@ class AtsJsonParser:
     def __init__(self, path: Path) -> None:
         self.path = path
 
-    def parse(self) -> dict[str, Any]:
+    def parse_all(self) -> list[dict[str, Any]]:
         from utils.file_utils import read_text_robust
 
         if not self.path.exists():
@@ -26,16 +26,21 @@ class AtsJsonParser:
         except Exception as error:
             raise AtsJsonParserError(f"Failed to parse ATS JSON: {error}") from error
 
+        records = []
         if isinstance(data, list):
             if not data:
                 raise AtsJsonParserError("ATS JSON is an empty list")
-            record = data[0]
+            records = data
         elif isinstance(data, dict):
-            record = data
+            records = [data]
         else:
             raise AtsJsonParserError("ATS JSON root must be a list or dictionary")
 
-        return self._extract_fields(record)
+        return [self._extract_fields(r) for r in records]
+
+    def parse(self) -> dict[str, Any]:
+        records = self.parse_all()
+        return records[0] if records else {}
 
     def _scalarize(self, value: Any) -> Any:
         """Defend against ATS fields that don't map cleanly to our schema: a field we

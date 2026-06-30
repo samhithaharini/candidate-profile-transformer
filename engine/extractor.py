@@ -56,40 +56,63 @@ class Extractor:
         if self.unstructured_type in ("txt", "recruiter_notes") and unstruct_ext != ".txt":
             raise ExtractionError(f"Wrong file extension for TXT source: expected .txt, got '{unstruct_ext}'")
 
-        # 1. Parse structured source
+        # 1. Parse unstructured source first
         try:
-            if self.structured_type == "csv":
-                structured_data = CsvParser(self.structured_path).parse()
-            elif self.structured_type == "json" or self.structured_type == "ats_json":
-                structured_data = AtsJsonParser(self.structured_path).parse()
-            else:
-                raise ExtractionError(f"Unsupported structured source type: {self.structured_type}")
-        except Exception as error:
-            raise ExtractionError(f"Structured extraction failed: {error}") from error
-
-        # 2. Parse unstructured source
-        try:
-            if self.unstructured_type == "pdf" or self.unstructured_type == "resume_pdf":
+            if self.unstructured_type in ("pdf", "resume_pdf"):
                 unstructured_data = ResumeParser(self.unstructured_path).parse()
             elif self.unstructured_type in ("linkedin_json", "linkedin_profile"):
                 unstructured_data = LinkedInJsonParser(self.unstructured_path).parse()
             elif self.unstructured_type in ("github_json", "github_profile"):
                 unstructured_data = GitHubJsonParser(self.unstructured_path).parse()
-            elif self.unstructured_type == "txt" or self.unstructured_type == "recruiter_notes":
+            elif self.unstructured_type in ("txt", "recruiter_notes"):
                 unstructured_data = RecruiterNotesParser(self.unstructured_path).parse()
             else:
                 raise ExtractionError(f"Unsupported unstructured source type: {self.unstructured_type}")
         except Exception as error:
             raise ExtractionError(f"Unstructured extraction failed: {error}") from error
 
-        structured_canonical = self._canonicalize(structured_data, self.structured_type, is_structured=True)
         unstructured_canonical = self._canonicalize(unstructured_data, self.unstructured_type, is_structured=False)
 
+        # 2. Parse structured source (all records)
+        try:
+            if self.structured_type == "csv":
+                structured_records = CsvParser(self.structured_path).parse_all()
+            elif self.structured_type in ("json", "ats_json"):
+                structured_records = AtsJsonParser(self.structured_path).parse_all()
+            else:
+                raise ExtractionError(f"Unsupported structured source type: {self.structured_type}")
+        except Exception as error:
+            raise ExtractionError(f"Structured extraction failed: {error}") from error
+
+        # 3. Match and select the correct structured record from pool
+        selected_structured = None
+        if structured_records:
+            from engine.normalizer import Normalizer
+            from engine.matcher import Matcher
+
+            normalizer = Normalizer()
+            matcher = Matcher()
+
+            unstruct_norm = normalizer.normalize_record(unstructured_canonical)
+
+            for record in structured_records:
+                struct_canonical = self._canonicalize(record, self.structured_type, is_structured=True)
+                struct_norm = normalizer.normalize_record(struct_canonical)
+
+                match_result = matcher.match(struct_norm, unstruct_norm)
+                if match_result.matched:
+                    selected_structured = struct_canonical
+                    break
+
+            if not selected_structured:
+                selected_structured = self._canonicalize(structured_records[0], self.structured_type, is_structured=True)
+        else:
+            raise ExtractionError("Structured source contains no records")
+
         res = {
-            "structured": structured_canonical,
+            "structured": selected_structured,
             "unstructured": unstructured_canonical,
-            # Backward compatibility aliases
-            "csv": structured_canonical,
+            "csv": selected_structured,
             "resume": unstructured_canonical,
         }
         return res

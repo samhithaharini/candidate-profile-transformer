@@ -122,12 +122,13 @@ class PipelineController:
             logger.info("Step 8: Validating output against schema")
             validator = Validator()
             validated_output = validator.validate(projected, config.get("on_missing", "null"))
+            validated_canonical = validator.validate(canonical_profile, config.get("on_missing", "null"))
 
             logger.info("Pipeline execution completed successfully")
             
             return {
                 "success": True,
-                "canonical_profile": canonical_profile,
+                "canonical_profile": validated_canonical,
                 "projected_output": validated_output,
                 "provenance": provenance,
                 "confidence_scores": field_scores,

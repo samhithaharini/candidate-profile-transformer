@@ -15,7 +15,7 @@ class CsvParser:
     def __init__(self, path: Path) -> None:
         self.path = path
 
-    def parse(self) -> dict[str, Any]:
+    def parse_all(self) -> list[dict[str, Any]]:
         from utils.file_utils import read_text_robust
 
         if not self.path.exists():
@@ -61,17 +61,25 @@ class CsvParser:
         if not has_header_overlap:
             raise CsvParserError("Malformed CSV or incorrect delimiters: no expected header columns found.")
 
-        row = rows[0]
-        normalized_row: dict[str, Any] = {}
-        for column in CSV_EXPECTED_COLUMNS:
-            value = self._find_value(row, headers, column)
-            normalized_row[column] = self._clean_value(value)
+        normalized_rows = []
+        for row in rows:
+            normalized_row: dict[str, Any] = {}
+            for column in CSV_EXPECTED_COLUMNS:
+                value = self._find_value(row, headers, column)
+                normalized_row[column] = self._clean_value(value)
 
-        # Check for identifiers
-        if not normalized_row.get("name") and not normalized_row.get("email") and not normalized_row.get("phone"):
-            raise CsvParserError("Malformed CSV: no candidate identifiers (name, email, or phone) found in data.")
+            # Only add rows that have at least one identifier
+            if normalized_row.get("name") or normalized_row.get("email") or normalized_row.get("phone"):
+                normalized_rows.append(normalized_row)
 
-        return normalized_row
+        if not normalized_rows:
+            raise CsvParserError("Malformed CSV: no candidate identifiers (name, email, or phone) found in any row.")
+
+        return normalized_rows
+
+    def parse(self) -> dict[str, Any]:
+        rows = self.parse_all()
+        return rows[0] if rows else {}
 
     @staticmethod
     def _find_value(row: dict[str, Any], headers: dict[str, str], column: str) -> Any:

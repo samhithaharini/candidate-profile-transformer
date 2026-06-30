@@ -7,7 +7,7 @@ from typing import Any
 EMAIL_PATTERN = re.compile(r"[a-zA-Z0-9_.+-]+\s*@\s*[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
 PHONE_PATTERN = re.compile(r"\+?[0-9][0-9\-(). ]{6,}[0-9]")
 LINK_PATTERN = re.compile(
-    r"(?:https?://|www\.)[a-zA-Z0-9\-_.]+\.[a-zA-Z]{2,}(?:/[^\s|]*)?|[a-zA-Z0-9\-_.]+\.(?:com|org|net|io|edu|co|in|dev)(?:/[^\s|]*)?",
+    r"(?:https?://|www\.)[a-zA-Z0-9\-_.]+\.[a-zA-Z]{2,}\b(?:/[^\s|]*)?|[a-zA-Z0-9\-_.]+\.(?:com|org|net|io|edu|co|in|dev)\b(?:/[^\s|]*)?",
     re.IGNORECASE,
 )
 LOCATION_PATTERN = re.compile(r"(?:location|address|city)\s*[:\-]\s*(.+)", re.IGNORECASE)
