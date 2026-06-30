@@ -424,27 +424,27 @@ http://localhost:8501
 
 ## Home Page
 
-![Home Page](Screenshot1)
+![Home Page](Screenshot1.png)
 
 ---
 
-![Side Bar](Screenshot2)
+![Side Bar](Screenshot2.png)
 
 ---
 
 ## Processing Dashboard
 
-![Processing](Screenshot3)
+![Processing](Screenshot3.png)
 
 ---
 
 ## Canonical Output & Provenance
 
-![Output](Screenshot4)
+![Output](Screenshot4.png)
 
 ---
 
-![Output](Screenshot5)
+![Output](Screenshot5.png)
 
 ---
 
