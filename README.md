@@ -1,59 +1,481 @@
-# Candidate Transformer
+# Multi-Source Candidate Data Transformer
 
-A production-quality Python candidate data ingestion and transformation platform. It reads data from multiple structured (Recruiter CSV, ATS JSON) and unstructured (Resume PDF, LinkedIn JSON, GitHub JSON, Recruiter Notes TXT) sources, matches, merges, validates, and projects them into customizable target shapes.
+A runtime-configurable candidate profile transformation engine built for the **Eightfold Engineering Intern Assignment (Jul–Dec 2026)**.
 
-## Architecture
+The application ingests candidate information from multiple structured and unstructured sources, normalizes inconsistent values, merges duplicate candidate records, tracks provenance for every field, assigns confidence scores, and generates a single canonical candidate profile.
 
-This project is organized as a clean 3-layered system:
-1. **Presentation Layer**: 
-   - `app.py`: A premium Streamlit web application.
-   - `main.py`: Backward-compatible CLI command-line entrypoint.
-2. **Application Layer**: 
-   - `engine/pipeline.py`: Reusable `PipelineController` orchestrating execution and log capture (also usable directly from Python without the UI).
-3. **Engine Layer**:
-   - `parsers/`: Modular parser classes for CSV, PDF (via `pdfplumber`), LinkedIn/GitHub JSON, and Recruiter TXT notes.
-   - `engine/`: Normalizer, Matcher, Merger, Confidence, Provenance, and Projector modules.
-   - `schemas/`: Pydantic candidate schema definition.
+---
 
-## Installation
+# Live Demo
 
-1. Create a Python 3.12+ environment.
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+Streamlit Application
 
-## Run Web Interface (Streamlit)
+https://candidate-profile-transformer.streamlit.app/
 
-Launch the interactive presentation layer:
+---
+
+# Problem Statement
+
+Recruitment data arrives from different systems and formats.
+
+Examples:
+
+- Recruiter CSV
+- ATS JSON
+- Resume PDF
+- LinkedIn Profile
+- GitHub Profile
+- Recruiter Notes
+
+Every source may contain
+
+- missing fields
+- duplicate information
+- conflicting values
+- different field names
+- inconsistent formatting
+
+The objective is to transform these heterogeneous sources into one trustworthy canonical profile.
+
+---
+
+# Solution Overview
+
+The project follows a deterministic transformation pipeline.
+
+```text
+                USER
+
+                  │
+
+                  ▼
+
+        Select Runtime Sources
+ (Structured + Unstructured)
+
+                  │
+
+                  ▼
+
+        Upload Candidate Files
+        CSV / JSON / PDF / URL
+
+                  │
+
+                  ▼
+
+          Source Detection
+
+                  │
+
+                  ▼
+
+          Field Extraction
+
+                  │
+
+                  ▼
+
+      Data Normalization Engine
+
+      • Emails
+      • Phones (E.164)
+      • Skills
+      • Links
+      • Locations
+      • Dates
+
+                  │
+
+                  ▼
+
+      Candidate Matching Engine
+
+      Match using
+
+      • Email
+      • Phone
+      • Name
+
+                  │
+
+                  ▼
+
+      Merge & Conflict Resolver
+
+      Select best value
+
+      Track source
+
+      Store merge reason
+
+                  │
+
+                  ▼
+
+      Confidence Engine
+
+      Field Confidence
+
+      Overall Confidence
+
+                  │
+
+                  ▼
+
+      Provenance Generator
+
+      Every field stores
+
+      • selected source
+
+      • selection method
+
+      • selected value
+
+                  │
+
+                  ▼
+
+     Runtime Projection Layer
+
+     Apply user configuration
+
+     ✔ Include fields
+
+     ✔ Omit fields
+
+     ✔ Rename fields
+
+     ✔ Missing value policy
+
+                  │
+
+                  ▼
+
+          Schema Validation
+
+                  │
+
+                  ▼
+
+      Canonical JSON Output
+```
+
+---
+
+# Features
+
+- Supports multiple structured and unstructured sources
+- Runtime configurable transformation
+- Canonical profile generation
+- Automatic normalization
+- Candidate matching
+- Merge conflict resolution
+- Provenance tracking
+- Confidence scoring
+- Processing logs
+- Batch resume processing
+- Download processed candidate profiles
+
+---
+
+# Supported Sources
+
+## Structured Sources
+
+- Recruiter CSV
+- ATS JSON
+
+## Unstructured Sources
+
+- Resume PDF
+- LinkedIn URL
+- GitHub URL
+- Recruiter Notes (.txt)
+
+---
+
+# Canonical Output
+
+The generated profile contains
+
+- Candidate ID
+- Name
+- Emails
+- Phones
+- Location
+- Links
+- Headline
+- Skills
+- Experience
+- Education
+- Provenance
+- Confidence Scores
+- Execution Metadata
+
+---
+
+# Runtime Configuration
+
+The application supports runtime configuration without changing code.
+
+Users can
+
+- Choose structured source
+- Choose unstructured source
+- Select output fields
+- Include confidence scores
+- Include provenance
+- Include execution metadata
+- Select missing value policy
+
+Supported missing value policies
+
+- null
+- omit
+- error
+
+---
+
+# Merge Strategy
+
+When duplicate information exists,
+
+Priority is assigned using deterministic rules.
+
+Example
+
+Resume > ATS > Recruiter CSV
+
+Arrays
+
+- Union merge
+- Remove duplicates
+
+Missing values
+
+- Never invented
+- Always deterministic
+
+---
+
+# Normalization
+
+The engine normalizes
+
+- Phone numbers → E.164
+- Emails
+- Canonical skills
+- URLs
+- Locations
+- Dates
+
+---
+
+# Provenance Tracking
+
+Every output field records
+
+- selected source
+- selected value
+- merge method
+
+making the transformation completely explainable.
+
+---
+
+# Confidence Engine
+
+Confidence is calculated for
+
+- individual fields
+- overall candidate profile
+
+based on
+
+- source reliability
+- field agreement
+- completeness
+- normalization success
+
+---
+
+# Tech Stack
+
+Frontend
+
+- Streamlit
+
+Backend
+
+- Python 3
+
+Libraries
+
+- Pandas
+- PyMuPDF
+- Requests
+- BeautifulSoup
+- JSON
+- Regex
+
+---
+
+# Project Structure
+
+```
+candidate-profile-transformer/
+
+│
+
+├── app.py
+
+├── parsers/
+
+├── engine/
+
+├── utils/
+
+├── config/
+
+├── schemas/
+
+├── assets/
+
+├── tests/
+
+├── requirements.txt
+
+└── README.md
+```
+
+---
+
+# Running Locally
+
+## Clone Repository
+
+```bash
+git clone https://github.com/samhithaharini/candidate-profile-transformer.git
+
+cd candidate-profile-transformer
+```
+
+---
+
+## Create Virtual Environment
+
+Windows
+
+```bash
+python -m venv venv
+
+venv\Scripts\activate
+```
+
+Linux / Mac
+
+```bash
+python3 -m venv venv
+
+source venv/bin/activate
+```
+
+---
+
+## Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+## Run Application
+
 ```bash
 streamlit run app.py
 ```
 
-## Run Programmatically (no UI)
+Application opens automatically at
 
-The pipeline is also fully usable as a plain Python module, with no Streamlit dependency, which is what the Streamlit UI itself calls under the hood:
-
-```python
-from pathlib import Path
-import json
-from engine.pipeline import PipelineController
-
-config = json.loads(Path("config/config.json").read_text())
-controller = PipelineController()
-result = controller.run_pipeline(
-    structured_path=Path("sample_data/recruiter.csv"),
-    unstructured_path=Path("sample_data/resume.pdf"),
-    structured_type="csv",        # "csv" | "json" (ATS JSON)
-    unstructured_type="pdf",      # "pdf" | "linkedin_json" | "github_json" | "txt"
-    config=config,
-)
-print(json.dumps(result["projected_output"], indent=2))
+```
+http://localhost:8501
 ```
 
-`result["success"]` is `False` with `result["error"]` set if any stage fails (missing/garbage source, no candidate match, schema validation failure, etc.) instead of raising — this is the thin input/output surface the assignment asks for, with the Streamlit app as the optional UI layer on top of it.
+---
 
-## Scope notes
+# Sample Workflow
 
-- Each run takes exactly one structured source + one unstructured source (the minimum required by the brief). Combining more than two sources at once is intentionally out of scope given the time budget.
-- OCR for scanned/image-only PDFs, live GitHub API rate-limit handling, and multi-language NLP on resume text are explicitly descoped — these fail the run with a clear error rather than silently fabricating data.
+1. Select Structured Source
+2. Select Unstructured Source
+3. Upload candidate files
+4. Configure runtime options
+5. Run Transformation Pipeline
+6. View canonical profile
+7. View provenance
+8. View confidence scores
+9. Download processed output
+
+---
+
+# Screenshots
+
+## Home Page
+
+![Home Page](Screenshot1)
+
+---
+
+![Side Bar](Screenshot2)
+
+---
+
+## Processing Dashboard
+
+![Processing](Screenshot3)
+
+---
+
+## Canonical Output & Provenance
+
+![Output](Screenshot4)
+
+---
+
+![Output](Screenshot5)
+
+---
+
+# Assignment Requirements Covered
+
+✔ Structured Source
+
+✔ Unstructured Source
+
+✔ Runtime Configuration
+
+✔ Canonical Schema
+
+✔ Normalization
+
+✔ Candidate Matching
+
+✔ Merge Strategy
+
+✔ Provenance
+
+✔ Confidence Scores
+
+✔ Validation
+
+✔ Processing Logs
+
+✔ Batch Processing
+
+✔ Download Output
+
+✔ Streamlit Interface
+
+---
