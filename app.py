@@ -129,17 +129,22 @@ st.markdown("""
         background-color: #172554 !important;
     }
     
-    /* Uploaded file name text color visibility */
-    [data-testid="stFileUploader"] [data-testid="stFileUploaderFileName"],
-    [data-testid="stFileUploader"] div,
-    [data-testid="stFileUploader"] span,
-    [data-testid="stFileUploader"] p,
-    [data-testid="stUploadedFile"],
-    [data-testid="stUploadedFile"] div,
-    [data-testid="stUploadedFile"] span,
-    [data-testid="stUploadedFile"] p {
-        color: #1E3A8A !important;
+    /* Fix button text color */
+    [data-testid="stFileUploader"] button,
+    [data-testid="stFileUploader"] button * {
+        color: white !important;
     }
+    
+    /* Uploaded file name text color visibility */
+    [data-testid="stUploadedFile"] {
+        background-color: #1E3A8A !important;
+        border-radius: 6px !important;
+    }
+    [data-testid="stUploadedFile"],
+    [data-testid="stUploadedFile"] * {
+        color: white !important;
+    }
+
     
     /* Text input custom style */
     .stTextInput > div > div > input {
