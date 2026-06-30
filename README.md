@@ -428,23 +428,15 @@ http://localhost:8501
 
 ---
 
-![Side Bar](Screenshot2.png)
-
----
-
 ## Processing Dashboard
 
-![Processing](Screenshot3.png)
+![Processing](Screenshot2.png)
 
 ---
 
 ## Canonical Output & Provenance
 
-![Output](Screenshot4.png)
-
----
-
-![Output](Screenshot5.png)
+![Output](Screenshot3.png)
 
 ---
 
