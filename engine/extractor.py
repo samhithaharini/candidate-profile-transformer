@@ -18,36 +18,41 @@ class ExtractionError(Exception):
 class Extractor:
     def __init__(
         self,
-        structured_path: Path,
+        structured_paths: Path | list[Path],
         unstructured_path: Path,
         structured_type: str = "csv",
         unstructured_type: str = "pdf"
     ) -> None:
-        self.structured_path = structured_path
+        if isinstance(structured_paths, Path):
+            self.structured_paths = [structured_paths]
+        else:
+            self.structured_paths = structured_paths
         self.unstructured_path = unstructured_path
         self.structured_type = structured_type.lower()
         self.unstructured_type = unstructured_type.lower()
 
     def extract(self) -> dict[str, dict[str, Any]]:
         # Path validation
-        if not self.structured_path:
-            raise ExtractionError("Structured source file path is missing")
+        if not self.structured_paths:
+            raise ExtractionError("Structured source file paths are missing")
         if not self.unstructured_path:
             raise ExtractionError("Unstructured source file path is missing")
 
-        if not self.structured_path.exists():
-            raise ExtractionError(f"Structured file not found: {self.structured_path}")
+        for sp in self.structured_paths:
+            if not sp.exists():
+                raise ExtractionError(f"Structured file not found: {sp}")
         if not self.unstructured_path.exists():
             raise ExtractionError(f"Unstructured file not found: {self.unstructured_path}")
 
         # Extension validation
-        struct_ext = self.structured_path.suffix.lower()
         unstruct_ext = self.unstructured_path.suffix.lower()
 
-        if self.structured_type == "csv" and struct_ext != ".csv":
-            raise ExtractionError(f"Wrong file extension for CSV source: expected .csv, got '{struct_ext}'")
-        if self.structured_type in ("json", "ats_json") and struct_ext != ".json":
-            raise ExtractionError(f"Wrong file extension for JSON source: expected .json, got '{struct_ext}'")
+        for sp in self.structured_paths:
+            struct_ext = sp.suffix.lower()
+            if self.structured_type == "csv" and struct_ext != ".csv":
+                raise ExtractionError(f"Wrong file extension for CSV source: expected .csv, got '{struct_ext}'")
+            if self.structured_type in ("json", "ats_json") and struct_ext != ".json":
+                raise ExtractionError(f"Wrong file extension for JSON source: expected .json, got '{struct_ext}'")
 
         if self.unstructured_type in ("pdf", "resume_pdf") and unstruct_ext != ".pdf":
             raise ExtractionError(f"Wrong file extension for PDF source: expected .pdf, got '{unstruct_ext}'")
@@ -74,15 +79,19 @@ class Extractor:
         unstructured_canonical = self._canonicalize(unstructured_data, self.unstructured_type, is_structured=False)
 
         # 2. Parse structured source (all records)
-        try:
-            if self.structured_type == "csv":
-                structured_records = CsvParser(self.structured_path).parse_all()
-            elif self.structured_type in ("json", "ats_json"):
-                structured_records = AtsJsonParser(self.structured_path).parse_all()
-            else:
-                raise ExtractionError(f"Unsupported structured source type: {self.structured_type}")
-        except Exception as error:
-            raise ExtractionError(f"Structured extraction failed: {error}") from error
+        structured_records = []
+        for sp in self.structured_paths:
+            try:
+                if self.structured_type == "csv":
+                    records = CsvParser(sp).parse_all()
+                elif self.structured_type in ("json", "ats_json"):
+                    records = AtsJsonParser(sp).parse_all()
+                else:
+                    raise ExtractionError(f"Unsupported structured source type: {self.structured_type}")
+                if records:
+                    structured_records.extend(records)
+            except Exception as error:
+                raise ExtractionError(f"Structured extraction failed for {sp.name}: {error}") from error
 
         # 3. Match and select the correct structured record from pool
         selected_structured = None

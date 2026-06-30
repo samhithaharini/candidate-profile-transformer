@@ -20,12 +20,14 @@ from utils.logger import get_logger
 class PipelineController:
     def run_pipeline(
         self,
-        structured_path: Path,
+        structured_paths: Path | list[Path],
         unstructured_path: Path,
         structured_type: str,
         unstructured_type: str,
         config: dict[str, Any]
     ) -> dict[str, Any]:
+        if isinstance(structured_paths, Path):
+            structured_paths = [structured_paths]
         # 1. Setup log capture
         logger = get_logger("candidate_transformer")
         log_capture = io.StringIO()
@@ -35,13 +37,14 @@ class PipelineController:
 
         try:
             logger.info("Initializing transformation pipeline")
-            logger.info(f"Structured Source: {structured_path.name} (type: {structured_type})")
+            structured_names = ", ".join([p.name for p in structured_paths])
+            logger.info(f"Structured Source(s): {structured_names} (type: {structured_type})")
             logger.info(f"Unstructured Source: {unstructured_path.name} (type: {unstructured_type})")
 
             # 2. Extraction
             logger.info("Step 1: Extracting candidate entities")
             extractor = Extractor(
-                structured_path,
+                structured_paths,
                 unstructured_path,
                 structured_type,
                 unstructured_type

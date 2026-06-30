@@ -216,7 +216,8 @@ st.markdown("""
     }
     
     /* Run Transformation Button */
-    div.stButton > button:first-child {
+    div.stButton > button:first-child,
+    div.stDownloadButton > button {
         background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%) !important;
         color: white !important;
         border: none;
@@ -228,9 +229,13 @@ st.markdown("""
         transition: all 0.3s;
         width: 100%;
     }
-    div.stButton > button:first-child:hover {
+    div.stButton > button:first-child:hover,
+    div.stDownloadButton > button:hover {
         transform: translateY(-2px);
         box-shadow: 0 6px 18px rgba(30, 58, 138, 0.35);
+    }
+    div.stDownloadButton > button p {
+        color: white !important;
     }
 
     /* Success notification style */
@@ -274,6 +279,50 @@ def parse_and_preview(file_path: Path, source_type: str) -> dict[str, Any] | Non
             return RecruiterNotesParser(file_path).parse()
     except Exception as e:
         st.error(f"Error parsing preview: {e}")
+    return None
+
+
+def list_zip_contents(uploaded_file, unstruct_type: str) -> list[tuple[str, int]]:
+    import zipfile
+    import io
+    files = []
+    try:
+        zip_data = io.BytesIO(uploaded_file.getvalue())
+        with zipfile.ZipFile(zip_data, 'r') as zip_ref:
+            for info in zip_ref.infolist():
+                if not info.is_dir():
+                    ext = Path(info.filename).suffix.lower()
+                    if unstruct_type == "resume_pdf" and ext == ".pdf":
+                        files.append((Path(info.filename).name, info.file_size))
+                    elif unstruct_type == "recruiter_notes" and ext == ".txt":
+                        files.append((Path(info.filename).name, info.file_size))
+                    elif unstruct_type in ("linkedin_profile", "github_profile") and ext == ".json":
+                        files.append((Path(info.filename).name, info.file_size))
+    except Exception:
+        pass
+    return files
+
+
+def parse_and_preview_zip(zip_path: Path, unstruct_type: str) -> dict[str, Any] | None:
+    import zipfile
+    try:
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            for name in zip_ref.namelist():
+                ext = Path(name).suffix.lower()
+                is_match = False
+                if unstruct_type == "resume_pdf" and ext == ".pdf":
+                    is_match = True
+                elif unstruct_type == "recruiter_notes" and ext == ".txt":
+                    is_match = True
+                elif unstruct_type in ("linkedin_profile", "github_profile") and ext == ".json":
+                    is_match = True
+                
+                if is_match:
+                    with tempfile.TemporaryDirectory() as td:
+                        extracted_path = zip_ref.extract(name, td)
+                        return parse_and_preview(Path(extracted_path), unstruct_type)
+    except Exception:
+        pass
     return None
 
 
@@ -444,34 +493,39 @@ pipeline_config = {
 col1, col2 = st.columns(2)
 
 with col1:
-    st.markdown(f"### Section 1: Upload Structured Source ({structured_format})")
-    struct_file = st.file_uploader(
-        f"Upload {structured_format} File",
+    st.markdown(f"### Upload Structured Source ({structured_format})")
+    struct_files = st.file_uploader(
+        f"Upload {structured_format} File(s)",
         type=["csv", "json"] if struct_type == "ats_json" else ["csv"],
+        accept_multiple_files=True,
         key="struct_file_uploader"
     )
-    if not struct_file and load_sample and struct_type == "csv":
+    if not struct_files and load_sample and struct_type == "csv":
         st.info("ℹ️ Using sample structured source: `sample_data/recruiter.csv` (Jane Doe)")
 
 with col2:
-    st.markdown(f"### Section 2: Upload Unstructured Source ({unstructured_format})")
+    st.markdown(f"### Upload Unstructured Source ({unstructured_format})")
     
-    unstruct_file = None
+    unstruct_files = []
     unstruct_url = ""
     url_valid = True
     
     if unstruct_type == "resume_pdf":
-        unstruct_file = st.file_uploader(
-            "Upload Resume PDF",
-            type=["pdf"],
+        unstruct_files = st.file_uploader(
+            "Upload Resume PDF(s) or ZIP Archive",
+            type=["pdf", "zip"],
+            accept_multiple_files=True,
             key="unstruct_file_uploader"
         )
+        st.caption("💡 **Tip**: You can upload a single **.zip archive** containing all your PDF resumes, or select multiple PDFs at once using Ctrl/Shift+Click!")
     elif unstruct_type == "recruiter_notes":
-        unstruct_file = st.file_uploader(
-            "Upload Recruiter Notes TXT",
-            type=["txt"],
+        unstruct_files = st.file_uploader(
+            "Upload Recruiter Notes TXT(s) or ZIP Archive",
+            type=["txt", "zip"],
+            accept_multiple_files=True,
             key="unstruct_file_uploader"
         )
+        st.caption("💡 **Tip**: You can upload a single **.zip archive** containing all your TXT notes, or select multiple TXT files at once using Ctrl/Shift+Click!")
     elif unstruct_type == "linkedin_profile":
         unstruct_url = st.text_input(
             "LinkedIn Profile URL",
@@ -482,11 +536,13 @@ with col2:
             url_valid = LinkedInProvider.validate_url(unstruct_url)
             if not url_valid:
                 st.error("❌ Invalid LinkedIn URL. Format: https://www.linkedin.com/in/<username>")
-        unstruct_file = st.file_uploader(
-            "Alternative: Upload LinkedIn JSON File",
-            type=["json"],
+        unstruct_files = st.file_uploader(
+            "Alternative: Upload LinkedIn JSON File(s) or ZIP Archive",
+            type=["json", "zip"],
+            accept_multiple_files=True,
             key="unstruct_file_uploader"
         )
+        st.caption("💡 **Tip**: You can upload a single **.zip archive** containing multiple JSON profiles, or select multiple JSON files at once using Ctrl/Shift+Click!")
     elif unstruct_type == "github_profile":
         unstruct_url = st.text_input(
             "GitHub Profile URL",
@@ -497,247 +553,374 @@ with col2:
             url_valid = GitHubProvider.validate_url(unstruct_url)
             if not url_valid:
                 st.error("❌ Invalid GitHub URL. Format: https://github.com/<username>")
-        unstruct_file = st.file_uploader(
-            "Alternative: Upload GitHub JSON File",
-            type=["json"],
+        unstruct_files = st.file_uploader(
+            "Alternative: Upload GitHub JSON File(s) or ZIP Archive",
+            type=["json", "zip"],
+            accept_multiple_files=True,
             key="unstruct_file_uploader"
         )
+        st.caption("💡 **Tip**: You can upload a single **.zip archive** containing multiple JSON profiles, or select multiple JSON files at once using Ctrl/Shift+Click!")
 
 # Resolve paths and names for Structured Source
-struct_path = None
+struct_paths = []
 struct_loaded = False
-struct_file_name = ""
-struct_file_size = 0
+struct_file_names = []
+struct_file_sizes = []
 
-if struct_file:
-    struct_path = save_uploaded_file(struct_file)
-    struct_loaded = True
-    struct_file_name = struct_file.name
-    struct_file_size = struct_file.size
+if struct_files:
+    for f in struct_files:
+        if f.size == 0:
+            st.warning(f"⚠️ Structured file '{f.name}' is empty and will be skipped.")
+            continue
+        struct_paths.append(save_uploaded_file(f))
+        struct_file_names.append(f.name)
+        struct_file_sizes.append(f.size)
+    struct_loaded = len(struct_paths) > 0
 elif load_sample and struct_type == "csv":
-    struct_path = Path("sample_data/recruiter.csv")
+    p = Path("sample_data/recruiter.csv")
+    struct_paths.append(p)
     struct_loaded = True
-    struct_file_name = "recruiter.csv"
-    struct_file_size = struct_path.stat().st_size
+    struct_file_names.append("recruiter.csv")
+    struct_file_sizes.append(p.stat().st_size)
 
 # Resolve paths and names for Unstructured Source
-unstruct_path = None
+unstruct_paths = []
 unstruct_loaded = False
-unstruct_file_name = ""
-unstruct_file_size = 0
+unstruct_file_names = []
+unstruct_file_sizes = []
 
-if unstruct_file:
-    unstruct_path = save_uploaded_file(unstruct_file)
-    unstruct_loaded = True
-    unstruct_file_name = unstruct_file.name
-    unstruct_file_size = unstruct_file.size
+if unstruct_files:
+    for f in unstruct_files:
+        if f.size == 0:
+            st.warning(f"⚠️ Unstructured file '{f.name}' is empty and will be skipped.")
+            continue
+        if f.name.lower().endswith(".zip"):
+            zip_files = list_zip_contents(f, unstruct_type)
+            for fn, sz in zip_files:
+                unstruct_file_names.append(fn)
+                unstruct_file_sizes.append(sz)
+            unstruct_paths.append(save_uploaded_file(f))
+        else:
+            unstruct_paths.append(save_uploaded_file(f))
+            unstruct_file_names.append(f.name)
+            unstruct_file_sizes.append(f.size)
+    unstruct_loaded = len(unstruct_file_names) > 0
 else:
     if unstruct_type in ("linkedin_profile", "github_profile"):
         unstruct_loaded = bool(unstruct_url and url_valid)
     elif load_sample:
         if unstruct_type == "resume_pdf":
-            unstruct_path = Path("sample_data/resume.pdf")
+            p = Path("sample_data/resume.pdf")
+            unstruct_paths.append(p)
+            unstruct_file_names.append("resume.pdf")
+            unstruct_file_sizes.append(p.stat().st_size)
             unstruct_loaded = True
-            unstruct_file_name = "resume.pdf"
-            unstruct_file_size = unstruct_path.stat().st_size
         elif unstruct_type == "recruiter_notes":
-            unstruct_path = Path("sample_data/recruiter_notes.txt")
+            p = Path("sample_data/recruiter_notes.txt")
+            unstruct_paths.append(p)
+            unstruct_file_names.append("recruiter_notes.txt")
+            unstruct_file_sizes.append(p.stat().st_size)
             unstruct_loaded = True
-            unstruct_file_name = "recruiter_notes.txt"
-            unstruct_file_size = unstruct_path.stat().st_size
 
 st.markdown("---")
 
-# --- SECTION 3 & 4: DETECTED TYPES & PREVIEWS ---
-if struct_loaded or unstruct_loaded:
-    st.markdown("### Files Analysis Panel")
-    preview_cols = st.columns(2)
-    
-    with preview_cols[0]:
-        if struct_loaded and struct_path:
-            if struct_file:
-                st.info(f"📁 **Structured Source Detected**: `{struct_file_name}` ({struct_file_size / 1024:.2f} KB)")
-            else:
-                st.info(f"📁 **Structured Source (Sample)**: `{struct_file_name}` ({struct_file_size / 1024:.2f} KB)")
-            st.markdown("#### Preview Extracted Structured Entities")
-            
-            if struct_file:
-                temp_path = save_uploaded_file(struct_file)
-                preview_data = parse_and_preview(temp_path, struct_type)
-                temp_path.unlink()
-            else:
-                preview_data = parse_and_preview(struct_path, struct_type)
-            
-            if preview_data:
-                st.json(preview_data)
-        else:
-            st.warning("⚠️ Structured source not uploaded yet.")
-            
-    with preview_cols[1]:
-        if unstruct_type in ("linkedin_profile", "github_profile") and not unstruct_file:
-            if unstruct_url and url_valid:
-                st.info(f"🔗 **Profile URL Detected**: `{unstruct_url}`")
-                st.markdown("#### Preview Extracted Unstructured Entities")
-                
-                try:
-                    raw_data = get_adjusted_profile(unstruct_type, unstruct_url, struct_path, struct_type)
-                        
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".json") as temp_file:
-                        temp_file.write(json.dumps(raw_data).encode("utf-8"))
-                        temp_path = Path(temp_file.name)
-                        
-                    preview_data = parse_and_preview(temp_path, unstruct_type)
-                    temp_path.unlink()  # Clean up preview temp
-                    
-                    if preview_data:
-                        st.json(preview_data)
-                except Exception as e:
-                    st.error(f"Error loading preview: {e}")
-            else:
-                st.warning("⚠️ Unstructured profile URL not provided or invalid.")
-        else:
-            if unstruct_loaded and unstruct_path:
-                if unstruct_file:
-                    st.info(f"📄 **Unstructured Source Detected**: `{unstruct_file_name}` ({unstruct_file_size / 1024:.2f} KB)")
-                else:
-                    st.info(f"📄 **Unstructured Source (Sample)**: `{unstruct_file_name}` ({unstruct_file_size / 1024:.2f} KB)")
-                st.markdown("#### Preview Extracted Unstructured Entities")
-                
-                if unstruct_file:
-                    temp_path = save_uploaded_file(unstruct_file)
-                    preview_data = parse_and_preview(temp_path, unstruct_type)
-                    temp_path.unlink()
-                else:
-                    preview_data = parse_and_preview(unstruct_path, unstruct_type)
-                
-                if preview_data:
-                    st.json(preview_data)
-            else:
-                st.warning("⚠️ Unstructured source not uploaded yet.")
-            
-    st.markdown("---")
+# --- PREVIEWS REMOVED ---
 
-# --- SECTION 5: RUN TRANSFORMATION ---
 if struct_loaded and unstruct_loaded:
-    st.markdown("### Section 5: Execute Transformation Engine")
+    st.markdown("### Execute Transformation Engine")
     
     if st.button("Run Transformation Pipeline"):
         with st.spinner("Executing pipeline layers..."):
-            run_struct_path = struct_path
-            is_temp_struct = False
-            if struct_file:
-                run_struct_path = save_uploaded_file(struct_file)
-                is_temp_struct = True
+            run_struct_paths = struct_paths
+            is_temp_struct = bool(struct_files)
                 
-            run_unstruct_path = unstruct_path
-            is_temp_unstruct = False
+            run_unstruct_paths = []
+            run_unstruct_file_names = []
+            is_temp_unstruct_list = []
+            zip_temp_dirs = []
             
             try:
-                if unstruct_type in ("linkedin_profile", "github_profile") and not unstruct_file:
-                    raw_data = get_adjusted_profile(unstruct_type, unstruct_url, struct_path, struct_type)
-                    
+                if unstruct_type in ("linkedin_profile", "github_profile") and not unstruct_files:
+                    raw_data = get_adjusted_profile(unstruct_type, unstruct_url, struct_paths[0] if struct_paths else None, struct_type)
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".json") as temp_file:
                         temp_file.write(json.dumps(raw_data).encode("utf-8"))
-                        run_unstruct_path = Path(temp_file.name)
-                        is_temp_unstruct = True
+                        run_unstruct_paths.append(Path(temp_file.name))
+                        run_unstruct_file_names.append(f"{unstruct_type}_url")
+                        is_temp_unstruct_list.append(True)
                 else:
-                    if unstruct_file:
-                        run_unstruct_path = save_uploaded_file(unstruct_file)
-                        is_temp_unstruct = True
+                    import zipfile
+                    for p in unstruct_paths:
+                        if p.name.lower().endswith(".zip"):
+                            zip_dir = Path(tempfile.mkdtemp())
+                            zip_temp_dirs.append(zip_dir)
+                            with zipfile.ZipFile(p, 'r') as zip_ref:
+                                zip_ref.extractall(zip_dir)
+                            for extracted_file in zip_dir.rglob("*"):
+                                if extracted_file.is_file():
+                                    ext = extracted_file.suffix.lower()
+                                    is_match = False
+                                    if unstruct_type == "resume_pdf" and ext == ".pdf":
+                                        is_match = True
+                                    elif unstruct_type == "recruiter_notes" and ext == ".txt":
+                                        is_match = True
+                                    elif unstruct_type in ("linkedin_profile", "github_profile") and ext == ".json":
+                                        is_match = True
+                                    
+                                    if is_match:
+                                        run_unstruct_paths.append(extracted_file)
+                                        run_unstruct_file_names.append(extracted_file.name)
+                                        is_temp_unstruct_list.append(True)
+                            if p.exists():
+                                p.unlink()
+                        else:
+                            run_unstruct_paths.append(p)
+                            original_idx = unstruct_paths.index(p)
+                            fn = unstruct_file_names[original_idx] if original_idx < len(unstruct_file_names) else p.name
+                            run_unstruct_file_names.append(fn)
+                            is_temp_unstruct_list.append(bool(unstruct_files))
                 
                 controller = PipelineController()
-                result = controller.run_pipeline(
-                    structured_path=run_struct_path,
-                    unstructured_path=run_unstruct_path,
-                    structured_type=struct_type,
-                    unstructured_type=unstruct_type,
-                    config=pipeline_config
-                )
+                results = []
+                success_count = 0
+                failure_count = 0
+                
+                for idx, single_unstruct_path in enumerate(run_unstruct_paths):
+                    fn = run_unstruct_file_names[idx]
+                    try:
+                        res = controller.run_pipeline(
+                            structured_paths=run_struct_paths,
+                            unstructured_path=single_unstruct_path,
+                            structured_type=struct_type,
+                            unstructured_type=unstruct_type,
+                            config=pipeline_config
+                        )
+                        if res["success"]:
+                            success_count += 1
+                            results.append({
+                                "candidate_number": idx + 1,
+                                "file_name": fn,
+                                "success": True,
+                                "name": res["canonical_profile"].get("full_name") or "Unknown",
+                                "score": res["match_result"].get("score", 0.0),
+                                "reason": res["match_result"].get("reason", ""),
+                                "result": res
+                            })
+                        else:
+                            failure_count += 1
+                            results.append({
+                                "candidate_number": idx + 1,
+                                "file_name": fn,
+                                "success": False,
+                                "name": "N/A",
+                                "score": 0.0,
+                                "reason": "N/A",
+                                "error": res["error"],
+                                "result": res
+                            })
+                    except Exception as e:
+                        failure_count += 1
+                        results.append({
+                            "candidate_number": idx + 1,
+                            "file_name": fn,
+                            "success": False,
+                            "name": "N/A",
+                            "score": 0.0,
+                            "reason": "N/A",
+                            "error": str(e),
+                            "result": None
+                        })
                 
                 if is_temp_struct:
-                    run_struct_path.unlink()
-                if is_temp_unstruct:
-                    run_unstruct_path.unlink()
+                    for p in run_struct_paths:
+                        if p.exists():
+                            p.unlink()
+                for p, is_temp in zip(run_unstruct_paths, is_temp_unstruct_list):
+                    if is_temp and p.exists() and not any(zip_dir in p.parents for zip_dir in zip_temp_dirs):
+                        p.unlink()
+                import shutil
+                for zip_dir in zip_temp_dirs:
+                    if zip_dir.exists():
+                        shutil.rmtree(zip_dir)
                 
-                if result["success"]:
-                    st.success("🎉 Pipeline executed successfully!")
-                    
-                    # Setup 5 tabs
-                    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-                        "1. Canonical Profile",
-                        "2. Projected Output",
-                        "3. Provenance",
-                        "4. Confidence Scores",
-                        "5. Processing Logs"
-                    ])
-                    
-                    with tab1:
-                        st.markdown("#### Unified Canonical Profile")
-                        st.json(result["canonical_profile"])
-                        
-                    with tab2:
-                        st.markdown("#### Projected & Reshaped Output")
-                        st.json(result["projected_output"])
-                        
-                        # Download button
-                        projected_json_str = json.dumps(result["projected_output"], indent=2)
-                        st.download_button(
-                            label="Download Projected Profile JSON",
-                            data=projected_json_str,
-                            file_name="candidate_profile.json",
-                            mime="application/json"
-                        )
-                        
-                    with tab3:
-                        st.markdown("#### Data Provenance Tracker")
-                        prov_list = result["provenance"]
-                        if prov_list:
-                            df_prov = pd.DataFrame(prov_list)
-                            st.dataframe(df_prov, use_container_width=True)
-                        else:
-                            st.write("Provenance tracking is disabled or empty.")
-                            
-                    with tab4:
-                        st.markdown("#### Field Confidence & Match Statistics")
-                        c_col1, c_col2 = st.columns([1, 2])
-                        
-                        with c_col1:
-                            # Large Overall Confidence Card
-                            st.markdown(f"""
-                            <div class="metric-card">
-                                <div class="metric-title">Overall Profile Confidence</div>
-                                <div class="metric-value">{result['overall_confidence'] * 100:.1f}%</div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            
-                            match_info = result["match_result"]
-                            st.markdown(f"""
-                            <div class="metric-card">
-                                <div class="metric-title">Source Match Score</div>
-                                <div class="metric-value">{match_info['score'] * 100:.0f}%</div>
-                                <div style="font-size:0.85rem; color:#64748B; margin-top:0.5rem;">
-                                    Matched via: <b>{match_info['reason'].replace('_', ' ')}</b>
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            
-                        with c_col2:
-                            st.markdown("##### Individual Field Confidence Scores")
-                            df_conf = pd.DataFrame(
-                                list(result["confidence_scores"].items()),
-                                columns=["Profile Field", "Confidence Score"]
-                            )
-                            st.dataframe(df_conf, use_container_width=True)
-                            
-                    with tab5:
-                        st.markdown("#### Pipeline Runtime Execution Log")
-                        st.code(result["logs"], language="log")
-                        
-                else:
-                    st.error(f"❌ Transformation Pipeline failed: {result['error']}")
-                    with st.expander("Show Execution Logs"):
-                        st.code(result["logs"], language="log")
+                st.session_state.batch_results = results
+                st.session_state.batch_success = success_count
+                st.session_state.batch_failure = failure_count
+                st.success(f"🎉 Batch processed! Success: {success_count}, Failures: {failure_count}")
+                
             except Exception as ex:
                 st.error(f"❌ Execution failed: {ex}")
+
+# --- SECTION 6 & 7: DASHBOARD & VIEWER ---
+if "batch_results" in st.session_state:
+    results = st.session_state.batch_results
+    success_count = st.session_state.batch_success
+    failure_count = st.session_state.batch_failure
+    
+    st.markdown("---")
+    st.markdown("### Section 6: Processed Candidates Dashboard")
+    
+    col_stat1, col_stat2, col_stat3 = st.columns(3)
+    with col_stat1:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-title">Total Resumes</div>
+            <div class="metric-value">{len(results)}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_stat2:
+        st.markdown(f"""
+        <div class="metric-card" style="border-left: 5px solid #10B981;">
+            <div class="metric-title">Successfully Matched</div>
+            <div class="metric-value" style="color: #10B981;">{success_count}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_stat3:
+        st.markdown(f"""
+        <div class="metric-card" style="border-left: 5px solid #EF4444;">
+            <div class="metric-title">Failures / Mismatches</div>
+            <div class="metric-value" style="color: #EF4444;">{failure_count}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    # Bulk ZIP Download option
+    success_results = [r for r in results if r["success"]]
+    if success_results:
+        import io
+        import zipfile
+        
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
+            for r in success_results:
+                filename = f"candidate_{r['candidate_number']}_{r['name'].replace(' ', '_')}.json"
+                data_str = json.dumps(r["result"]["projected_output"], indent=2)
+                zip_file.writestr(filename, data_str)
+        
+        st.download_button(
+            label="📦 Download All Processed Profiles (ZIP)",
+            data=zip_buffer.getvalue(),
+            file_name="batch_processed_profiles.zip",
+            mime="application/zip"
+        )
+        
+    st.markdown("#### Search and Filter Candidates")
+    search_query = st.text_input("🔍 Fetch candidate by name or filename", placeholder="Type name or file to search...")
+    
+    filtered_results = []
+    for r in results:
+        if not search_query:
+            filtered_results.append(r)
+        else:
+            name_match = search_query.lower() in r["name"].lower()
+            file_match = search_query.lower() in r["file_name"].lower()
+            if name_match or file_match:
+                filtered_results.append(r)
+                
+    st.markdown(f"**Showing {len(filtered_results)} of {len(results)} candidate records**")
+    
+    table_data = []
+    for r in filtered_results:
+        status_str = "✅ Success" if r["success"] else f"❌ Failed: {r.get('error', 'Unknown Error')}"
+        table_data.append({
+            "No.": r["candidate_number"],
+            "File Name": r["file_name"],
+            "Matched Name": r["name"],
+            "Match Score": f"{r['score'] * 100:.0f}%" if r["success"] else "0%",
+            "Match Reason": r["reason"],
+            "Status": status_str
+        })
+        
+    if table_data:
+        df = pd.DataFrame(table_data)
+        st.dataframe(df, use_container_width=True, hide_index=True)
+    else:
+        st.write("No matching candidates found.")
+        
+    st.markdown("### Section 7: View Individual Candidate Output")
+    candidate_options = [
+        f"#{r['candidate_number']} - {r['name']} ({r['file_name']})"
+        for r in filtered_results
+    ]
+    
+    if candidate_options:
+        selected_option = st.selectbox("Select a candidate to view details", options=candidate_options)
+        selected_idx = candidate_options.index(selected_option)
+        selected_cand = filtered_results[selected_idx]
+        
+        if selected_cand["success"] and selected_cand["result"]:
+            res_val = selected_cand["result"]
+            
+            tab1, tab2, tab3, tab4, tab5 = st.tabs([
+                "1. Canonical Profile",
+                "2. Projected Output",
+                "3. Provenance",
+                "4. Confidence Scores",
+                "5. Processing Logs"
+            ])
+            
+            with tab1:
+                st.markdown("#### Unified Canonical Profile")
+                st.json(res_val["canonical_profile"])
+                
+            with tab2:
+                st.markdown("#### Projected & Reshaped Output")
+                st.json(res_val["projected_output"])
+                
+                projected_json_str = json.dumps(res_val["projected_output"], indent=2)
+                st.download_button(
+                    label=f"Download Projected JSON for {selected_cand['name']}",
+                    data=projected_json_str,
+                    file_name=f"candidate_{selected_cand['candidate_number']}_{selected_cand['name'].replace(' ', '_')}.json",
+                    mime="application/json",
+                    key=f"dl_{selected_cand['candidate_number']}"
+                )
+                
+            with tab3:
+                st.markdown("#### Data Provenance Tracker")
+                prov_list = res_val["provenance"]
+                if prov_list:
+                    df_prov = pd.DataFrame(prov_list)
+                    st.dataframe(df_prov, use_container_width=True)
+                else:
+                    st.write("Provenance tracking is disabled or empty.")
+                    
+            with tab4:
+                st.markdown("#### Field Confidence & Match Statistics")
+                c_col1, c_col2 = st.columns([1, 2])
+                
+                with c_col1:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <div class="metric-title">Overall Profile Confidence</div>
+                        <div class="metric-value">{res_val['overall_confidence'] * 100:.1f}%</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    match_info = res_val["match_result"]
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <div class="metric-title">Source Match Score</div>
+                        <div class="metric-value">{match_info['score'] * 100:.0f}%</div>
+                        <div style="font-size:0.85rem; color:#64748B; margin-top:0.5rem;">
+                            Matched via: <b>{match_info['reason'].replace('_', ' ')}</b>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                with c_col2:
+                    st.markdown("##### Individual Field Confidence Scores")
+                    df_conf = pd.DataFrame(
+                        list(res_val["confidence_scores"].items()),
+                        columns=["Profile Field", "Confidence Score"]
+                    )
+                    st.dataframe(df_conf, use_container_width=True)
+                    
+            with tab5:
+                st.markdown("#### Pipeline Runtime Execution Log")
+                st.code(res_val["logs"], language="log")
+        else:
+            st.error(f"Candidate process failed: {selected_cand.get('error', 'Unknown Error')}")
+            if selected_cand.get("result") and "logs" in selected_cand["result"]:
+                with st.expander("Show Execution Logs"):
+                    st.code(selected_cand["result"]["logs"], language="log")
 else:
     st.info("💡 Please specify both a Structured Source and an Unstructured Source (file upload or profile URL) to enable transformation.")

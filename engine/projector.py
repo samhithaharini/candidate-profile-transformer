@@ -157,7 +157,7 @@ class Projector:
             cleaned = {}
             for k, v in val.items():
                 cv = self._clean_omitted_values(v)
-                if cv not in (None, "", [], {}):
+                if cv not in (None, "", [], {}, "null", "NULL", "None") and str(cv).lower() != "nan":
                     cleaned[k] = cv
             return cleaned
         elif isinstance(val, list):

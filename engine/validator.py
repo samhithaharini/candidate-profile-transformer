@@ -6,6 +6,12 @@ from models.candidate_schema import validate_candidate
 
 class Validator:
     def validate(self, record: dict[str, Any], on_missing: str = "null") -> dict[str, Any]:
+        if on_missing == "error":
+            missing_paths = self._has_empty_structures(record)
+            if missing_paths:
+                missing_str = ", ".join(sorted(set(missing_paths)))
+                raise ValueError(f"Missing or null values found in fields: {missing_str}")
+
         if self._is_canonical_shape(record):
             # Strict validation against Pydantic CanonicalCandidate
             try:
@@ -16,9 +22,6 @@ class Validator:
                 else:
                     return candidate.model_dump()
             except (ValidationError, ValueError) as e:
-                if on_missing == "error":
-                    raise ValueError(e) from e
-                
                 self._validate_projected_fields(record)
                 if on_missing == "omit":
                     return self._clean_empty_structures(record)
@@ -30,19 +33,35 @@ class Validator:
                 return self._clean_empty_structures(record)
             return record
 
+    def _has_empty_structures(self, val: Any, path: str = "") -> list[str]:
+        missing_paths = []
+        if val in (None, "", [], {}):
+            missing_paths.append(path or "root")
+        elif isinstance(val, dict):
+            for k, v in val.items():
+                p = f"{path}.{k}" if path else k
+                missing_paths.extend(self._has_empty_structures(v, p))
+        elif isinstance(val, list):
+            for idx, item in enumerate(val):
+                # Don't add index if it's a simple primitive list that is empty, 
+                # but if the list has empty items, indicate the array path
+                p = f"{path}[{idx}]" if path else f"root[{idx}]"
+                missing_paths.extend(self._has_empty_structures(item, p))
+        return missing_paths
+
     def _clean_empty_structures(self, val: Any) -> Any:
         if isinstance(val, dict):
             cleaned = {}
             for k, v in val.items():
                 cv = self._clean_empty_structures(v)
-                if cv not in (None, "", [], {}):
+                if cv not in (None, "", [], {}, "null", "NULL", "None") and str(cv).lower() != "nan":
                     cleaned[k] = cv
             return cleaned
         elif isinstance(val, list):
             cleaned_list = []
             for item in val:
                 cv = self._clean_empty_structures(item)
-                if cv not in (None, "", [], {}):
+                if cv not in (None, "", [], {}, "null", "NULL", "None") and str(cv).lower() != "nan":
                     cleaned_list.append(cv)
             return cleaned_list
         return val
