@@ -1,0 +1,15 @@
+{
+  "name": "Jane Doe",
+  "email": "jane.doe@example.com",
+  "bio": "Software Engineer working with Python, Go, and open source projects.",
+  "blog": "https://janedoe.dev",
+  "location": "San Francisco, CA",
+  "repositories": [
+    {
+      "name": "data-transformer",
+      "language": "Python",
+      "description": "Offline-safe profile schema matcher."
+    }
+  ],
+  "html_url": "https://github.com/example"
+}

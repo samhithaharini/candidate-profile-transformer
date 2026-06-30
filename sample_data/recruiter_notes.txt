@@ -1,0 +1,12 @@
+Candidate Name: Jane Doe
+Email: jane.doe@example.com
+Phone: (415) 555-2671
+Location: San Francisco, CA
+Skills:
+- Python
+- Docker
+- Git
+- SQL
+Current Company: Acme Corp
+Title: Software Engineer
+Summary: Highly skilled software engineer with experience in Python backend development.

@@ -1,0 +1,31 @@
+{
+  "selected_fields": [
+    "candidate_id",
+    "full_name",
+    "emails",
+    "phones",
+    "location",
+    "links",
+    "headline",
+    "years_experience",
+    "skills",
+    "experience",
+    "education",
+    "field_confidence",
+    "overall_confidence",
+    "provenance",
+    "metadata"
+  ],
+  "field_renames": {},
+  "normalizers": {
+    "phone": true,
+    "email": true,
+    "country": true,
+    "dates": true,
+    "skills": true
+  },
+  "enable_confidence": true,
+  "enable_provenance": true,
+  "enable_metadata": true,
+  "missing_field_policy": "omit"
+}

@@ -1,0 +1,26 @@
+{
+  "name": "Jane Doe",
+  "headline": "Software Engineer at Acme Corp",
+  "location": "San Francisco, CA",
+  "email": "jane.doe@example.com",
+  "phone": "(415) 555-2671",
+  "skills": ["Python", "Docker", "Git", "SQL"],
+  "positions": [
+    {
+      "company_name": "Acme Corp",
+      "title": "Software Engineer",
+      "start_date": "2022-01",
+      "end_date": "Present",
+      "description": "Developing high performance APIs and data pipelining tools."
+    }
+  ],
+  "educations": [
+    {
+      "school_name": "University of California, Berkeley",
+      "degree": "B.S. Computer Science",
+      "field_of_study": "Computer Science",
+      "end_date": "2021"
+    }
+  ],
+  "linkedin_url": "https://www.linkedin.com/in/example/"
+}
